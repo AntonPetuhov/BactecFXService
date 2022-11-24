@@ -1,0 +1,13 @@
+C:\Users\anton.petuhov\source\repos\BactecFXService\BactecFXService\bin\Debug\BactecFXService.exe.config
+C:\Users\anton.petuhov\source\repos\BactecFXService\BactecFXService\bin\Debug\BactecFXService.exe
+C:\Users\anton.petuhov\source\repos\BactecFXService\BactecFXService\bin\Debug\BactecFXService.pdb
+C:\Users\anton.petuhov\source\repos\BactecFXService\BactecFXService\obj\Debug\BactecFXService.csproj.CoreCompileInputs.cache
+C:\Users\anton.petuhov\source\repos\BactecFXService\BactecFXService\obj\Debug\BactecFXService.exe
+C:\Users\anton.petuhov\source\repos\BactecFXService\BactecFXService\obj\Debug\BactecFXService.pdb
+C:\Users\anton.petuhov\DDriver\BactecFXService\BactecFXService\bin\Debug\BactecFXService.exe.config
+C:\Users\anton.petuhov\DDriver\BactecFXService\BactecFXService\bin\Debug\BactecFXService.exe
+C:\Users\anton.petuhov\DDriver\BactecFXService\BactecFXService\bin\Debug\BactecFXService.pdb
+C:\Users\anton.petuhov\DDriver\BactecFXService\BactecFXService\obj\Debug\BactecFXService.csproj.CoreCompileInputs.cache
+C:\Users\anton.petuhov\DDriver\BactecFXService\BactecFXService\obj\Debug\BactecFXService.exe
+C:\Users\anton.petuhov\DDriver\BactecFXService\BactecFXService\obj\Debug\BactecFXService.pdb
+C:\Users\anton.petuhov\DDriver\BactecFXService\BactecFXService\obj\Debug\BactecFXService.csproj.AssemblyReference.cache
