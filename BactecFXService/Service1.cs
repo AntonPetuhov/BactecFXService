@@ -13,6 +13,12 @@ using System.Threading;
 using System.Text.RegularExpressions;
 using System.Configuration;
 using System.Data.SqlClient;
+using Telegram.Bot;
+using Telegram.Bot.Extensions.Polling;
+using Telegram.Bot.Types;
+using Telegram.Bot.Types.Enums;
+using System.Net;
+
 
 
 namespace BactecFXService
@@ -41,6 +47,9 @@ namespace BactecFXService
 
         public static string user = "PSMExchangeUser"; //логин для базы обмена файлами и для базы CGM Analytix
         public static string password = "PSM_123456"; //пароль для базы обмена файлами и для базы CGM Analytix   
+
+        public static TelegramBotClient botClient = new TelegramBotClient("5713460548:AAHAem3It_bVQQrMcRvX2QNy7n5m_IUqLMY"); // токен бота
+        public static CancellationTokenSource cts = new CancellationTokenSource();
 
         #endregion
 
@@ -72,16 +81,16 @@ namespace BactecFXService
                 }
 
                 string filename = path + "\\ExchangeThread_" + DateTime.Now.Date.ToShortDateString().Replace('/', '_') + ".txt";
-                if (!File.Exists(filename))
+                if (!System.IO.File.Exists(filename))
                 {
-                    using (StreamWriter sw = File.CreateText(filename))
+                    using (StreamWriter sw = System.IO.File.CreateText(filename))
                     {
                         sw.WriteLine(DateTime.Now + ": " + Message);
                     }
                 }
                 else
                 {
-                    using (StreamWriter sw = File.AppendText(filename))
+                    using (StreamWriter sw = System.IO.File.AppendText(filename))
                     {
                         sw.WriteLine(DateTime.Now + ": " + Message);
                     }
@@ -107,16 +116,16 @@ namespace BactecFXService
                     //string filename = path + $"\\{FileName}" + ".txt";
                     string filename = path + $"\\ResultLog_" + DateTime.Now.Date.ToShortDateString().Replace('/', '_') + ".txt";
 
-                    if (!File.Exists(filename))
+                    if (!System.IO.File.Exists(filename))
                     {
-                        using (StreamWriter sw = File.CreateText(filename))
+                        using (StreamWriter sw = System.IO.File.CreateText(filename))
                         {
                             sw.WriteLine(DateTime.Now + ": " + Message);
                         }
                     }
                     else
                     {
-                        using (StreamWriter sw = File.AppendText(filename))
+                        using (StreamWriter sw = System.IO.File.AppendText(filename))
                         {
                             sw.WriteLine(DateTime.Now + ": " + Message);
                         }
@@ -143,16 +152,16 @@ namespace BactecFXService
                     }
 
                     string filename = path + "\\ServiceThread_" + DateTime.Now.Date.ToShortDateString().Replace('/', '_') + ".txt";
-                    if (!File.Exists(filename))
+                    if (!System.IO.File.Exists(filename))
                     {
-                        using (StreamWriter sw = File.CreateText(filename))
+                        using (StreamWriter sw = System.IO.File.CreateText(filename))
                         {
                             sw.WriteLine(DateTime.Now + ": " + Message);
                         }
                     }
                     else
                     {
-                        using (StreamWriter sw = File.AppendText(filename))
+                        using (StreamWriter sw = System.IO.File.AppendText(filename))
                         {
                             sw.WriteLine(DateTime.Now + ": " + Message);
                         }
@@ -294,6 +303,82 @@ namespace BactecFXService
                 }
             }
         }
+        #endregion
+
+        #region Телеграм-бот для рассылки уведомлений
+        // Когда пользователь отправляет сообщение, вызывается метод HandleUpdateAsync с объектом обновления Update, переданным в качестве аргумента
+        public static async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
+        {
+            // информация о пользователе и сообщении
+            //Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(update));
+
+            if (update.Type == Telegram.Bot.Types.Enums.UpdateType.Message)
+            {
+                var message = update.Message;
+
+                if (message.Text.ToLower() == "/start")
+                {
+                    await botClient.SendTextMessageAsync(message.Chat, "Бот анализатора Bactec FX запущен.");
+                    //Console.WriteLine(message.Text);
+                    //Console.WriteLine(message.Chat.Id);
+                    //Console.WriteLine(message.From.FirstName + " " + message.From.LastName);
+                    string name = (message.From.FirstName + " " + message.From.LastName);
+                    long chatId = message.Chat.Id;
+                    AddAppSettings(name, chatId.ToString());
+                    return;
+                }
+
+                await botClient.SendTextMessageAsync(message.Chat, "Бот анализатора Bactec FX работает.");
+            }
+        }
+
+        public static async Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
+        {
+            var ErrorMessage = exception;
+            //Console.WriteLine(ErrorMessage);
+            ServiceLog(ErrorMessage.ToString());
+        }
+
+        // добавление значений в файл конфигурации
+        static void AddAppSettings(string key, string value)
+        {
+            try
+            {
+                var configFile = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+                var settings = configFile.AppSettings.Settings;
+                // если такого ключа нет, то добавить
+                if (settings[key] == null)
+                {
+                    settings.Add(key, value);
+                }
+                // если есть - перезаписать значение
+                else
+                {
+                    //settings[key].Value = value;
+                }
+                configFile.Save(ConfigurationSaveMode.Modified);
+                ConfigurationManager.RefreshSection(configFile.AppSettings.SectionInformation.Name);
+            }
+            catch (ConfigurationErrorsException)
+            {
+                //Console.WriteLine("Error writing app settings");
+                ServiceLog("Error writing app settings");
+            }
+        }
+
+        // отправка уведомлений пользователям
+        public static async Task SendNotification(ITelegramBotClient botClient, string chat, string rid)
+        {
+            int chat_ = Int32.Parse(chat);
+            string messageText = "Положительный флакон номер: № " + rid;
+
+            // Echo received message text
+            Message sentMessage = await botClient.SendTextMessageAsync(
+                                                                        chat_,
+                                                                        messageText
+                                                                        );
+        }
+
         #endregion
 
         // Поток для проверки потоков чтения порта и обработки файлов с результатами
@@ -701,7 +786,8 @@ namespace BactecFXService
                 //string CGMConnectionString = @"Data Source=CGM-DATA02; Initial Catalog=LABETT; Integrated Security=True; User Id = PSMExchangeUser; Password = PSM_123456";
 
                 //string CGMConnectionString = @"Data Source=CGM-DATA02; Initial Catalog=LABETT; Integrated Security=True;";
-                string CGMConnectionString = @"Data Source = CGM-DATA01\CGMSQL; Initial Catalog = LABETT;";
+                //string CGMConnectionString = @"Data Source = CGM-DATA01\CGMSQL; Initial Catalog = LABETT;";
+                string CGMConnectionString = ConfigurationManager.ConnectionStrings["CGMConnection"].ConnectionString;
                 CGMConnectionString = String.Concat(CGMConnectionString, $"User Id = {user}; Password = {password}");
 
                 //Console.WriteLine(CGMConnectionString);
@@ -1187,7 +1273,7 @@ namespace BactecFXService
 
                     foreach (string file in Files)
                     {
-                        string[] lines = File.ReadAllLines(file);
+                        string[] lines = System.IO.File.ReadAllLines(file);
                         string RID = "";
                         string Result = "";
 
@@ -1222,24 +1308,41 @@ namespace BactecFXService
                         // Запись результатов в CGM
                         InsertResultToCGM(RID, Result);
 
+                        #region Отправка сообщения в бот
+
+                        if (Result == "POSITIVE")
+                        {
+                            // отправка оповещения, если результат Positive
+                            var appSettings = ConfigurationManager.AppSettings;
+
+                            foreach (var key in appSettings.AllKeys)
+                            {
+                                SendNotification(botClient, appSettings[key], RID);
+                            }
+                            FileResultLog("Notification send to BactecFX bot. ");
+                            FileResultLog("");
+                        }
+
+                        #endregion
+
                         string FileName = file.Substring(AnalyzerResultPath.Length + 1);
 
                         // Перемещение файлов в архив или ошибки
                         if (!FileToErrorPath)
                         {
-                            if (File.Exists(ArchivePath + @"\" + FileName))
+                            if (System.IO.File.Exists(ArchivePath + @"\" + FileName))
                             {
-                                File.Delete(ArchivePath + @"\" + FileName);
+                                System.IO.File.Delete(ArchivePath + @"\" + FileName);
                             }
-                            File.Move(file, ArchivePath + @"\" + FileName);
+                            System.IO.File.Move(file, ArchivePath + @"\" + FileName);
                         }
                         else
                         {
-                            if (File.Exists(ErrorPath + @"\" + FileName))
+                            if (System.IO.File.Exists(ErrorPath + @"\" + FileName))
                             {
-                                File.Delete(ErrorPath + @"\" + FileName);
+                                System.IO.File.Delete(ErrorPath + @"\" + FileName);
                             }
-                            File.Move(file, ErrorPath + @"\" + FileName);
+                            System.IO.File.Move(file, ErrorPath + @"\" + FileName);
                             FileResultLog("File has been moved to Error folder.");
                             FileResultLog($"");
                         }
@@ -1384,6 +1487,34 @@ namespace BactecFXService
             ServiceIsActive = true;
             ServiceLog("Service starts working");
 
+            
+            #region запуск телеграм-бота
+            // запуск телеграм-бота
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            // токен бота
+            //var botClient = new TelegramBotClient("5713460548:AAHAem3It_bVQQrMcRvX2QNy7n5m_IUqLMY");
+
+            //Console.WriteLine("Запущен бот " + botClient.GetMeAsync().Result.FirstName + " ID: " + botClient.GetMeAsync().Id);
+            ServiceLog("Запущен бот " + botClient.GetMeAsync().Result.FirstName + " ID: " + botClient.GetMeAsync().Id);
+
+            //var cts = new CancellationTokenSource();
+            var cancellationToken = cts.Token;
+
+            // StartReceiving does not block the caller thread. Receiving is done on the ThreadPool.
+            var receiverOptions = new ReceiverOptions
+            {
+                AllowedUpdates = Array.Empty<UpdateType>() // receive all update types
+
+            };
+
+            botClient.StartReceiving(HandleUpdateAsync,
+                                     HandlePollingErrorAsync,
+                                     receiverOptions,
+                                     cancellationToken);
+
+            #endregion
+            
+
             //Поток, который следит за другими потоками
             Thread ManagerThread = new Thread(CheckThreads);
             ManagerThread.Name = "Thread Manager";
@@ -1404,6 +1535,7 @@ namespace BactecFXService
         protected override void OnStop()
         {
             ServiceLog("Service is stopped");
+            cts.Cancel();  // остановка бота
             ServiceIsActive = false;
             _serialPort.Close();
         }
