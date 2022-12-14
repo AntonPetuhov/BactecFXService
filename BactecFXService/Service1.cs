@@ -1305,7 +1305,7 @@ namespace BactecFXService
                             {
                                 SendNotification(botClient, appSettings[key], Request, PatientId, ClientCode, FIO);
                             }
-                            FileResultLog($"Notification was sent to the BactecFX_bot.");
+                            FileResultLog($"Notification was sent to BactecFX_bot.");
                             FileResultLog($"");
                         }
 
