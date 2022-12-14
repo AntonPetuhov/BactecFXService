@@ -306,71 +306,15 @@ namespace BactecFXService
         #endregion
 
         #region Телеграм-бот для рассылки уведомлений
-        // Когда пользователь отправляет сообщение, вызывается метод HandleUpdateAsync с объектом обновления Update, переданным в качестве аргумента
-        public static async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
-        {
-            // информация о пользователе и сообщении
-            //Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(update));
-
-            if (update.Type == Telegram.Bot.Types.Enums.UpdateType.Message)
-            {
-                var message = update.Message;
-
-                if (message.Text.ToLower() == "/start")
-                {
-                    await botClient.SendTextMessageAsync(message.Chat, "Бот анализатора Bactec FX запущен.");
-                    //Console.WriteLine(message.Text);
-                    //Console.WriteLine(message.Chat.Id);
-                    //Console.WriteLine(message.From.FirstName + " " + message.From.LastName);
-                    string name = (message.From.FirstName + " " + message.From.LastName);
-                    long chatId = message.Chat.Id;
-                    AddAppSettings(name, chatId.ToString());
-                    return;
-                }
-
-                await botClient.SendTextMessageAsync(message.Chat, "Бот анализатора Bactec FX работает.");
-            }
-        }
-
-        public static async Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
-        {
-            var ErrorMessage = exception;
-            //Console.WriteLine(ErrorMessage);
-            ServiceLog(ErrorMessage.ToString());
-        }
-
-        // добавление значений в файл конфигурации
-        static void AddAppSettings(string key, string value)
-        {
-            try
-            {
-                var configFile = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-                var settings = configFile.AppSettings.Settings;
-                // если такого ключа нет, то добавить
-                if (settings[key] == null)
-                {
-                    settings.Add(key, value);
-                }
-                // если есть - перезаписать значение
-                else
-                {
-                    //settings[key].Value = value;
-                }
-                configFile.Save(ConfigurationSaveMode.Modified);
-                ConfigurationManager.RefreshSection(configFile.AppSettings.SectionInformation.Name);
-            }
-            catch (ConfigurationErrorsException)
-            {
-                //Console.WriteLine("Error writing app settings");
-                ServiceLog("Error writing app settings");
-            }
-        }
-
         // отправка уведомлений пользователям
-        public static async Task SendNotification(ITelegramBotClient botClient, string chat, string rid)
+        public static async Task SendNotification(ITelegramBotClient botClient, string chat, string rid, string pid, string client, string fio)
         {
-            int chat_ = Int32.Parse(chat);
-            string messageText = "Положительный флакон номер: № " + rid;
+            //int chat_ = Int32.Parse(chat);
+            // id канала
+            long chat_ = Int64.Parse(chat);
+
+            //string messageText = "Положительный флакон №: " + rid;
+            string messageText = "Положительный флакон №: " + rid + "\n" + "Пациент: " + fio + "\n" + "Id пациента: " + pid + "\n" + "Код отделения: " + client;
 
             // Echo received message text
             Message sentMessage = await botClient.SendTextMessageAsync(
@@ -783,8 +727,6 @@ namespace BactecFXService
 
             try
             {
-                //string CGMConnectionString = @"Data Source=CGM-DATA02; Initial Catalog=LABETT; Integrated Security=True; User Id = PSMExchangeUser; Password = PSM_123456";
-
                 //string CGMConnectionString = @"Data Source=CGM-DATA02; Initial Catalog=LABETT; Integrated Security=True;";
                 //string CGMConnectionString = @"Data Source = CGM-DATA01\CGMSQL; Initial Catalog = LABETT;";
                 string CGMConnectionString = ConfigurationManager.ConnectionStrings["CGMConnection"].ConnectionString;
@@ -913,15 +855,15 @@ namespace BactecFXService
                     // Если зарегистрирован микробиологический тест и кол-во тестов в заявке = 1
                     if (IsCultureTest && TestCount == 1)
                     {
-                        #region pro_id, rem_id, тест
-                        // находим pro_id, rem_id, тест, lid
+                        #region pro_id, rem_id, тест, pid, clientcode
+                        // находим pro_id, rem_id, тест, lid, pid, clientcode
                         int rem_id = 0;
                         int pro_id = 0;
                         string TestCode = "";
                         string Lid = "";
 
                         SqlCommand GetData = new SqlCommand(
-                            "SELECT s.rem_id, s.pro_id, s.ana_analyskod, s.pro_provid FROM LABETT..searchview s " +
+                            "SELECT s.rem_id, s.pro_id, s.ana_analyskod, s.pro_provid, s.pop_pid, s.prov_adr_kod_regvid FROM LABETT..searchview s " +
                             "INNER JOIN ana a ON s.ana_analyskod = a.ana_analyskod " +
                             $"WHERE s.rem_rid = '{InsertRid}' AND s.bes_ank_dttm IS NOT NULL AND s.bes_t_dttm IS NULL AND s.ana_analyskod LIKE 'P_%' AND a.dis_kod = 'Б'", CGMconnection);
 
@@ -1234,6 +1176,7 @@ namespace BactecFXService
                 FileResultLog($"{Error}");
                 FileToErrorPath = true;
             }
+            
         }
 
         // Обработка файлов с результатами
@@ -1263,8 +1206,10 @@ namespace BactecFXService
 
                     string[] Files = Directory.GetFiles(AnalyzerResultPath, "*.res");
 
-                    //string RIDPattern = @"[O][|][1][|](?<RID>\d+)[|]{2}";
-                    string RIDPattern = @"[O][|][1][|](?<RID>\d+)[|]{2}\S*";
+                    // Ищет RID
+                    //string RIDPattern = @"[O][|][1][|](?<RID>\d+)[|]{2}\S*";
+                    // Ищет еще и LID
+                    string RIDPattern = @"[O][|][1][|](?<RID>\w+)[|]{2}\S*";
                     //string ResultPattern = @"[R][|][1][|]\S+[|]INST[_](?<Result>\w+)[|]\S*";
                     string ResultPattern = @"[R][|][1][|]\S+INST_(?<Result>\w+)[|]";
 
@@ -1303,6 +1248,12 @@ namespace BactecFXService
                             {
                                 //Console.WriteLine("FAIL");
                             }
+
+                            // Если номер > 10 знаков, значит это LID и обрезаем до 10 знаков
+                            if (RID.Length > 10)
+                            {
+                                RID = RID.Substring(0, 10);
+                            }
                         }
 
                         // Запись результатов в CGM
@@ -1312,15 +1263,50 @@ namespace BactecFXService
 
                         if (Result == "POSITIVE")
                         {
+                            #region Получем из базы данные по заявке для оповещения
+
+                            string Request = "";
+                            string FIO = "";
+                            string ClientCode = "";
+                            string PatientId = "";
+
+                            // подключаемся к базе, чтобы получить данные по заявке, которые отправим в оповещении
+                            string CGMConnectionString = ConfigurationManager.ConnectionStrings["CGMConnection"].ConnectionString;
+                            CGMConnectionString = String.Concat(CGMConnectionString, $"User Id = {user}; Password = {password}");
+
+                            using (SqlConnection CGMconnection = new SqlConnection(CGMConnectionString))
+                            {
+                                CGMconnection.Open();
+
+                                SqlCommand GetNotificationData = new SqlCommand("SELECT r.rem_rid, r.pop_pid, r.adr_kod_regvid, p.pop_enamn + ' ' + p.pop_fnamn AS FIO " +
+                                                                                "FROM LABETT..remiss r INNER JOIN labett..pop p ON r.pop_pid = p.pop_pid " +
+                                                                                "WHERE r.rem_rid = @rid", CGMconnection);
+                                GetNotificationData.Parameters.Add(new SqlParameter("@rid", RID));
+                                SqlDataReader GetNotificationDataReader = GetNotificationData.ExecuteReader();
+
+                                if (GetNotificationDataReader.HasRows)
+                                {
+                                    while (GetNotificationDataReader.Read())
+                                    {
+                                        Request = GetNotificationDataReader.GetString(0);
+                                        PatientId = GetNotificationDataReader.GetString(1);
+                                        ClientCode = GetNotificationDataReader.GetString(2);
+                                        FIO = GetNotificationDataReader.GetString(3);
+                                    }
+                                }
+                                GetNotificationDataReader.Close();
+                                CGMconnection.Close();
+                            }
+                            #endregion
                             // отправка оповещения, если результат Positive
                             var appSettings = ConfigurationManager.AppSettings;
 
                             foreach (var key in appSettings.AllKeys)
                             {
-                                SendNotification(botClient, appSettings[key], RID);
+                                SendNotification(botClient, appSettings[key], Request, PatientId, ClientCode, FIO);
                             }
-                            FileResultLog("Notification send to BactecFX bot. ");
-                            FileResultLog("");
+                            FileResultLog($"Notification was sent to the BactecFX_bot.");
+                            FileResultLog($"");
                         }
 
                         #endregion
@@ -1487,32 +1473,9 @@ namespace BactecFXService
             ServiceIsActive = true;
             ServiceLog("Service starts working");
 
-            
-            #region запуск телеграм-бота
             // запуск телеграм-бота
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
-            // токен бота
-            //var botClient = new TelegramBotClient("5713460548:AAHAem3It_bVQQrMcRvX2QNy7n5m_IUqLMY");
-
-            //Console.WriteLine("Запущен бот " + botClient.GetMeAsync().Result.FirstName + " ID: " + botClient.GetMeAsync().Id);
-            ServiceLog("Запущен бот " + botClient.GetMeAsync().Result.FirstName + " ID: " + botClient.GetMeAsync().Id);
-
-            //var cts = new CancellationTokenSource();
-            var cancellationToken = cts.Token;
-
-            // StartReceiving does not block the caller thread. Receiving is done on the ThreadPool.
-            var receiverOptions = new ReceiverOptions
-            {
-                AllowedUpdates = Array.Empty<UpdateType>() // receive all update types
-
-            };
-
-            botClient.StartReceiving(HandleUpdateAsync,
-                                     HandlePollingErrorAsync,
-                                     receiverOptions,
-                                     cancellationToken);
-
-            #endregion
+            ServiceLog("Telegram Bot started " + botClient.GetMeAsync().Result.FirstName);
             
 
             //Поток, который следит за другими потоками
@@ -1535,7 +1498,6 @@ namespace BactecFXService
         protected override void OnStop()
         {
             ServiceLog("Service is stopped");
-            cts.Cancel();  // остановка бота
             ServiceIsActive = false;
             _serialPort.Close();
         }
