@@ -718,6 +718,65 @@ namespace BactecFXService
 
         }
 
+        // Подтверждение заявки в CGM
+        public static void ValidationCGM(string rid, int remid, int proid, string testcode, SqlConnection CGMConnection)
+        {
+            // начало транзакции
+            SqlTransaction RequestValidationTransaction = CGMConnection.BeginTransaction();
+
+            // Обновление таблицы bestall
+            SqlCommand UpdateBestall = CGMConnection.CreateCommand();
+
+            UpdateBestall.CommandText = "UPDATE bestall " +
+                                            "SET met_kod = @testcode, bes_antal = '1', bes_svarstyp = 'R', bes_svarstat = 'G', ste_kod = NULL, " +
+                                            "bes_m_dttm = GETDATE(), sig_sign_msign = 'BACTEC', sig_sign_tsign = 'BACTEC', bes_t_dttm = GETDATE(), bes_utskrift = 'S', " +
+                                            "adr_alt_flag1 = NULL, adr_alt_flag2 = NULL, adr_alt_flag3 = NULL, bes_avreg = 'X', adr_kod_bagare = '41', " +
+                                            "bes_ursprsign = 'ADMIN', bes_chg_time = GETDATE(), bes_chg_user = 'dbo', bes_aktualitet = bes_aktualitet + 1  " +
+                                        "WHERE pro_id=@pro_id and rem_id=@rem_id and ana_analyskod=@testcode";
+
+            UpdateBestall.Parameters.Add(new SqlParameter("@testcode", testcode));
+            UpdateBestall.Parameters.Add(new SqlParameter("@pro_id", proid));
+            UpdateBestall.Parameters.Add(new SqlParameter("@rem_id", remid));
+            //UpdateBestall.Parameters.Add(new SqlParameter("@test_code", testcode));
+
+            UpdateBestall.Transaction = RequestValidationTransaction;
+
+            // Обновление таблицы plate
+            SqlCommand UpdatePlateTable = CGMConnection.CreateCommand();
+            UpdatePlateTable.CommandText = "UPDATE plate " +
+                                            "SET sig_sign = 'BACTEC', pla_chg_user = 'dbo', pla_chg_time = GETDATE(), pla_chg_version = pla_chg_version + 1 " +
+                                           "where rem_id = @rem_id and pro_id = @pro_id and ana_analyskod = '@testcode'";
+            UpdatePlateTable.Parameters.Add(new SqlParameter("@rem_id", remid));
+            UpdatePlateTable.Parameters.Add(new SqlParameter("@pro_id", proid));
+            UpdatePlateTable.Parameters.Add(new SqlParameter("@testcode", testcode));
+
+            UpdatePlateTable.Transaction = RequestValidationTransaction;
+
+            // Инсерт в таблицу svarrid
+            SqlCommand InsertSvarrid = CGMConnection.CreateCommand();
+            InsertSvarrid.CommandText = "INSERT INTO svarrid ( rem_id, sri_status, sri_crt_user, sri_chg_user ) VALUES ( @rem_id, 'O', 'dbo', 'dbo' )";
+            InsertSvarrid.Parameters.Add(new SqlParameter("@rem_id", remid));
+
+            InsertSvarrid.Transaction = RequestValidationTransaction;
+
+            // выполнение скриптов
+            try
+            {
+                UpdateBestall.ExecuteNonQuery();
+                UpdatePlateTable.ExecuteNonQuery();
+                InsertSvarrid.ExecuteNonQuery();
+
+                RequestValidationTransaction.Commit();
+                FileResultLog("Result was approved by BactecFX analyzer.");
+            }
+            catch (Exception ex)
+            {
+                RequestValidationTransaction.Rollback();
+                FileResultLog($"{ex}");
+                FileResultLog($"Result was not approved.");
+            }
+        }
+
         // Запись результатов в CGM
         static void InsertResultToCGM(string InsertRid, string InsertResult)
         {
@@ -1141,7 +1200,7 @@ namespace BactecFXService
 
                                     // запись в лог
                                     FileResultLog($"Result {InsertResult} is inserted.");
-                                    FileResultLog($"");
+                                    //FileResultLog($"");
                                 }
                                 catch (Exception ex)
                                 {
@@ -1149,15 +1208,21 @@ namespace BactecFXService
                                     //Console.WriteLine(ex);
                                     FileResultLog($"{ex}");
                                     FileResultLog($"Result {InsertResult} is NOT inserted!");
-                                    FileResultLog($"");
+                                    //FileResultLog($"");
                                 }
                             }
                             // Если микроорганизм уже есть, то ничего не записываем
                             else
                             {
                                 FileResultLog("Result is already exists.");
-                                FileResultLog($"");
+                                //FileResultLog($"");
                             }
+                            // Если результат NEGATIVE - валидируем результат
+                            if (InsertResult == "NEGATIVE")
+                            {
+                                ValidationCGM(InsertRid, rem_id, pro_id, TestCode, CGMconnection);
+                            }
+                            FileResultLog($"");
                         }
 
                     }
