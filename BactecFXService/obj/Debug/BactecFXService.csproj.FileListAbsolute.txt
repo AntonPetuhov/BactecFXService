@@ -26,7 +26,6 @@ C:\Users\anton.petuhov\source\repos\BactecFXService\BactecFXService\bin\Debug\Te
 C:\Users\anton.petuhov\source\repos\BactecFXService\BactecFXService\bin\Debug\Telegram.Bot.Extensions.Polling.pdb
 C:\Users\anton.petuhov\source\repos\BactecFXService\BactecFXService\bin\Debug\Telegram.Bot.Extensions.Polling.xml
 C:\Users\anton.petuhov\source\repos\BactecFXService\BactecFXService\obj\Debug\BactecFXService.csproj.CopyComplete
-C:\Users\anton.petuhov\source\repos\BactecFXService\BactecFXService\obj\Debug\BactecFXService.csproj.AssemblyReference.cache
 C:\Users\anton.petuhov\DDriver\BactecFXService\BactecFXService\bin\Debug\Newtonsoft.Json.dll
 C:\Users\anton.petuhov\DDriver\BactecFXService\BactecFXService\bin\Debug\System.ComponentModel.Annotations.dll
 C:\Users\anton.petuhov\DDriver\BactecFXService\BactecFXService\bin\Debug\System.Runtime.CompilerServices.Unsafe.dll
