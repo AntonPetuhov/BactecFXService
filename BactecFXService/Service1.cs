@@ -797,6 +797,7 @@ namespace BactecFXService
                 while (IdentitetReader.Read())
                 {
                     exs_id = IdentitetReader.GetInt32(0);
+                    exs_id = exs_id + 1;
                 }
             }
             IdentitetReader.Close();

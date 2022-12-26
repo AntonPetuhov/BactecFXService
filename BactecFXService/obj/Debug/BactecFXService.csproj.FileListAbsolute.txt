@@ -42,3 +42,4 @@ C:\Users\anton.petuhov\DDriver\BactecFXService\BactecFXService\bin\Debug\Telegra
 C:\Users\anton.petuhov\DDriver\BactecFXService\BactecFXService\bin\Debug\Telegram.Bot.Extensions.Polling.pdb
 C:\Users\anton.petuhov\DDriver\BactecFXService\BactecFXService\bin\Debug\Telegram.Bot.Extensions.Polling.xml
 C:\Users\anton.petuhov\DDriver\BactecFXService\BactecFXService\obj\Debug\BactecFXService.csproj.CopyComplete
+C:\Users\anton.petuhov\source\repos\BactecFXService\BactecFXService\obj\Debug\BactecFXService.csproj.AssemblyReference.cache
